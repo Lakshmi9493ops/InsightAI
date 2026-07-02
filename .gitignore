@@ -1,0 +1,21 @@
+# Virtual Environment
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Streamlit
+.streamlit/
+
+# Windows
+Thumbs.db
+
+# Reports
+reports/
+
+# Models
+models/*.pkl
