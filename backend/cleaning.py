@@ -1,15 +1,16 @@
-import pandas as pd
-
-
 def remove_duplicates(df):
     """
-    Remove duplicate rows from the dataset.
-    Returns:
-        cleaned_df, duplicates_removed
+    Remove duplicate rows.
     """
+    duplicates = df.duplicated().sum()
+    df = df.drop_duplicates()
+    return df, duplicates
 
-    duplicates_before = df.duplicated().sum()
 
-    cleaned_df = df.drop_duplicates()
-
-    return cleaned_df, duplicates_before
+def remove_missing_values(df):
+    """
+    Remove rows containing missing values.
+    """
+    missing_rows = df.isnull().any(axis=1).sum()
+    df = df.dropna()
+    return df, missing_rows
