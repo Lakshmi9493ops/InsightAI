@@ -4,6 +4,7 @@ import pandas as pd
 from backend.loader import load_dataset
 from backend.cleaning import remove_duplicates, remove_missing_values
 from backend.summary import dataset_summary
+from backend.charts import sales_by_category
 
 # ---------------------------------------------------
 # PAGE CONFIGURATION
@@ -59,7 +60,7 @@ if uploaded_file is not None:
 
     # Load Dataset
     df = load_dataset(uploaded_file)
-
+    
     # -----------------------------
     # Data Cleaning
     # -----------------------------
@@ -104,6 +105,14 @@ if uploaded_file is not None:
 
     with col5:
         st.metric("Date Columns", summary["date"])
+    st.subheader("📊 Sales Dashboard")
+
+    fig = sales_by_category(df)
+
+    if fig:
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("This dataset does not contain 'Category' and 'Sales' columns.")
 
     # -----------------------------
     # Dataset Preview
