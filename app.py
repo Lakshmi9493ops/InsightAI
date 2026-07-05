@@ -5,8 +5,11 @@ import pandas as pd
 from backend.loader import load_dataset
 from backend.cleaning import (
     remove_duplicates,
-    remove_missing_values
+    remove_missing_values,
+    fill_missing_values
 )
+from backend.converter import convert_numeric
+from backend.exporter import convert_to_csv
 from backend.summary import dataset_summary
 from backend.kpi import calculate_kpis
 from backend.charts import (
@@ -123,25 +126,36 @@ if uploaded_file is not None:
         if selected_category != "All":
             df = df[df["category"] == selected_category]
 
+    
     # --------------------------
     # Data Cleaning
     # --------------------------
+
     st.subheader("🧹 Data Cleaning")
 
-    col1, col2 = st.columns(2)
+    # Cleaning Options
+    remove_dup = st.checkbox("Remove Duplicate Rows")
 
-    with col1:
-        remove_dup = st.checkbox("Remove Duplicate Rows")
+    remove_missing = st.checkbox(
+        "Remove Rows with Missing Values"
+    )
 
-    with col2:
-        remove_missing = st.checkbox(
-            "Remove Rows with Missing Values"
-        )
+    fill_method = st.selectbox(
+        "Fill Missing Values",
+        [
+            "None",
+            "Mean",
+            "Median",
+            "Mode"
+        ]
+    )
 
-    duplicates = 0
-    missing = 0
+    # --------------------------
+    # Apply Cleaning
+    # --------------------------
 
     if remove_dup:
+
         df, duplicates = remove_duplicates(df)
 
         st.success(
@@ -149,10 +163,44 @@ if uploaded_file is not None:
         )
 
     if remove_missing:
+
         df, missing = remove_missing_values(df)
 
         st.success(
             f"✅ Removed {missing} rows with missing values."
+        )
+
+    if fill_method != "None":
+
+        df = fill_missing_values(
+            df,
+            fill_method
+        )
+
+        st.success(
+            f"✅ Missing values filled using {fill_method}."
+        )
+
+# --------------------------
+# Data Type Conversion
+# --------------------------
+
+    st.subheader("🔄 Data Type Conversion")
+
+    column = st.selectbox(
+        "Select Column",
+        df.columns
+    )
+
+    if st.button("Convert Selected Column to Numeric"):
+
+        df = convert_numeric(
+            df,
+            column
+        )
+
+        st.success(
+            f"✅ '{column}' converted to numeric."
         )
     # --------------------------
     # KPI Dashboard
@@ -313,11 +361,8 @@ if uploaded_file is not None:
         })
 
         st.dataframe(info)
+    
     # --------------------------
-    # Missing Values
-    # --------------------------
-
-        # --------------------------
     # Missing Values
     # --------------------------
 
@@ -335,3 +380,17 @@ if uploaded_file is not None:
             missing_df,
             use_container_width=True
         )
+    # --------------------------
+    # Download Cleaned Dataset
+    # --------------------------
+
+    st.subheader("📥 Download Cleaned Dataset")
+
+    csv = convert_to_csv(df)
+
+    st.download_button(
+        label="⬇ Download Cleaned CSV",
+        data=csv,
+        file_name="cleaned_dataset.csv",
+        mime="text/csv"
+    )   
