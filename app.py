@@ -2,13 +2,18 @@ import streamlit as st
 import pandas as pd
 
 from backend.loader import load_dataset
-from backend.cleaning import remove_duplicates, remove_missing_values
+from backend.cleaning import (
+    remove_duplicates,
+    remove_missing_values
+)
 from backend.summary import dataset_summary
 from backend.charts import sales_by_category
+from backend.kpi import calculate_kpis
 
 # ---------------------------------------------------
 # PAGE CONFIGURATION
 # ---------------------------------------------------
+
 st.set_page_config(
     page_title="InsightAI",
     page_icon="📊",
@@ -18,128 +23,172 @@ st.set_page_config(
 # ---------------------------------------------------
 # SIDEBAR
 # ---------------------------------------------------
+
 st.sidebar.title("📊 InsightAI")
 st.sidebar.success("Navigation")
 
 # ---------------------------------------------------
-# MAIN PAGE
+# TITLE
 # ---------------------------------------------------
+
 st.title("📊 InsightAI")
 
 st.markdown("""
 ## AI-Powered Business Data Analyst
 
-Welcome to **InsightAI**.
+Upload a business dataset and analyze it instantly.
 
-Upload your business dataset and let InsightAI help you analyze it.
+Current Features
 
-### Current Features
-
-- 📂 Upload CSV & Excel
-- 🧹 Remove duplicate rows
-- 📊 Dataset summary
-- 👀 Dataset preview
-- ℹ Dataset information
-- ❗ Missing value analysis
-
----
+- Upload CSV & Excel
+- Executive KPI Dashboard
+- Remove duplicate rows
+- Remove missing values
+- Dataset Summary
+- Interactive Charts
 """)
 
 # ---------------------------------------------------
-# FILE UPLOADER
+# FILE UPLOAD
 # ---------------------------------------------------
+
 uploaded_file = st.file_uploader(
-    "📂 Upload a CSV or Excel file",
+    "📂 Upload CSV or Excel",
     type=["csv", "xlsx"]
 )
 
 # ---------------------------------------------------
-# IF FILE IS UPLOADED
+# MAIN
 # ---------------------------------------------------
+
 if uploaded_file is not None:
 
-    # Load Dataset
     df = load_dataset(uploaded_file)
-    
-    # -----------------------------
-    # Data Cleaning
-    # -----------------------------
+
+    # --------------------------
+    # Cleaning
+    # --------------------------
+
     st.subheader("🧹 Data Cleaning")
 
     remove_dup = st.checkbox("Remove Duplicate Rows")
-    remove_missing = st.checkbox("Remove Rows with Missing Values")
 
-    duplicates_removed = 0
+    remove_missing = st.checkbox(
+        "Remove Rows with Missing Values"
+    )
 
     if remove_dup:
-        df, duplicates_removed = remove_duplicates(df)
-        st.info(f"🧹 Duplicate rows removed: {duplicates_removed}")
-    missing_removed = 0
+        df, duplicates = remove_duplicates(df)
+        st.success(
+            f"Removed {duplicates} duplicate rows."
+        )
 
     if remove_missing:
-        df, missing_removed = remove_missing_values(df)
-        st.info(f"🧹 Rows removed because of missing values: {missing_removed}")
+        df, missing = remove_missing_values(df)
+        st.success(
+            f"Removed {missing} rows with missing values."
+        )
 
-    # -----------------------------
+    # --------------------------
+    # KPI Dashboard
+    # --------------------------
+
+    kpi = calculate_kpis(df)
+
+    st.subheader("📊 Executive Dashboard")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        st.metric(
+            "💰 Total Sales",
+            f"${kpi['sales']:,.2f}"
+        )
+
+    with c2:
+        st.metric(
+            "📈 Total Profit",
+            f"${kpi['profit']:,.2f}"
+        )
+
+    with c3:
+        st.metric(
+            "📦 Orders",
+            kpi["orders"]
+        )
+
+    with c4:
+        st.metric(
+            "🌍 Countries",
+            kpi["countries"]
+        )
+
+    # --------------------------
     # Dataset Summary
-    # -----------------------------
+    # --------------------------
+
     summary = dataset_summary(df)
 
-    st.success(f"✅ {uploaded_file.name} uploaded successfully!")
+    st.subheader("📑 Dataset Summary")
 
-    st.subheader("📊 Dataset Summary")
+    s1, s2, s3, s4, s5 = st.columns(5)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    s1.metric("Rows", summary["rows"])
+    s2.metric("Columns", summary["columns"])
+    s3.metric("Numeric", summary["numeric"])
+    s4.metric("Text", summary["text"])
+    s5.metric("Date", summary["date"])
 
-    with col1:
-        st.metric("Rows", summary["rows"])
+    # --------------------------
+    # Chart
+    # --------------------------
 
-    with col2:
-        st.metric("Columns", summary["columns"])
-
-    with col3:
-        st.metric("Numeric Columns", summary["numeric"])
-
-    with col4:
-        st.metric("Text Columns", summary["text"])
-
-    with col5:
-        st.metric("Date Columns", summary["date"])
-    st.subheader("📊 Sales Dashboard")
+    st.subheader("📊 Sales by Category")
 
     fig = sales_by_category(df)
 
-    if fig:
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("This dataset does not contain 'Category' and 'Sales' columns.")
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
-    # -----------------------------
-    # Dataset Preview
-    # -----------------------------
-    with st.expander("📄 Dataset Preview", expanded=True):
+    # --------------------------
+    # Preview
+    # --------------------------
+
+    with st.expander(
+        "📄 Dataset Preview",
+        expanded=True
+    ):
         st.dataframe(df.head())
 
-    # -----------------------------
-    # Dataset Information
-    # -----------------------------
-    with st.expander("ℹ Dataset Information"):
+    # --------------------------
+    # Information
+    # --------------------------
 
-        info_df = pd.DataFrame({
-            "Column Name": df.columns,
-            "Data Type": df.dtypes.astype(str)
-        })
+    with st.expander(
+        "ℹ Dataset Information"
+    ):
 
-        st.dataframe(info_df)
-
-    # -----------------------------
-    # Missing Values
-    # -----------------------------
-    with st.expander("❗ Missing Values"):
-
-        missing_df = pd.DataFrame({
+        info = pd.DataFrame({
             "Column": df.columns,
-            "Missing Values": df.isnull().sum().values
+            "Datatype": df.dtypes.astype(str)
         })
 
-        st.dataframe(missing_df)
+        st.dataframe(info)
+
+    # --------------------------
+    # Missing Values
+    # --------------------------
+
+    with st.expander(
+        "❗ Missing Values"
+    ):
+
+        missing = pd.DataFrame({
+            "Column": df.columns,
+            "Missing": df.isnull().sum().values
+        })
+
+        st.dataframe(missing)
