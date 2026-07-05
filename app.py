@@ -1,16 +1,21 @@
 import streamlit as st
 import pandas as pd
-from backend.charts import sales_by_category, sales_by_region
-from backend.products import top_products
 
+# Backend Modules
 from backend.loader import load_dataset
 from backend.cleaning import (
     remove_duplicates,
     remove_missing_values
 )
 from backend.summary import dataset_summary
-from backend.charts import sales_by_category
 from backend.kpi import calculate_kpis
+from backend.charts import (
+    sales_by_category,
+    sales_by_region,
+    monthly_sales_trend,
+    profit_by_category
+)
+from backend.products import top_products
 
 # ---------------------------------------------------
 # PAGE CONFIGURATION
@@ -36,8 +41,9 @@ page = st.sidebar.radio(
         "Dataset"
     ]
 )
+
 # ---------------------------------------------------
-# TITLE
+# MAIN TITLE
 # ---------------------------------------------------
 
 st.title("📊 InsightAI")
@@ -47,15 +53,20 @@ st.markdown("""
 
 Upload a business dataset and analyze it instantly.
 
-Current Features
+### Current Features
 
-- Upload CSV & Excel
-- Executive KPI Dashboard
-- Remove duplicate rows
-- Remove missing values
-- Dataset Summary
-- Interactive Charts
+- 📂 Upload CSV & Excel
+- 📊 Executive KPI Dashboard
+- 🧹 Remove Duplicate Rows
+- ❗ Remove Missing Values
+- 📈 Interactive Business Charts
+- 📋 Dataset Summary
+- 👀 Dataset Preview
 """)
+
+# ---------------------------------------------------
+# FILE UPLOAD
+# ---------------------------------------------------
 
 # ---------------------------------------------------
 # FILE UPLOAD
@@ -72,34 +83,83 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
+    # --------------------------
+    # Load Dataset
+    # --------------------------
     df = load_dataset(uploaded_file)
 
     # --------------------------
-    # Cleaning
+    # Sidebar Filters
     # --------------------------
+    st.sidebar.header("📌 Dashboard Filters")
 
+    # Region Filter
+    selected_region = "All"
+
+    if "region" in df.columns:
+
+        regions = sorted(df["region"].dropna().unique())
+
+        selected_region = st.sidebar.selectbox(
+            "🌍 Select Region",
+            ["All"] + regions
+        )
+
+        if selected_region != "All":
+            df = df[df["region"] == selected_region]
+
+    # Category Filter
+    selected_category = "All"
+
+    if "category" in df.columns:
+
+        categories = sorted(df["category"].dropna().unique())
+
+        selected_category = st.sidebar.selectbox(
+            "📦 Select Category",
+            ["All"] + categories
+        )
+
+        if selected_category != "All":
+            df = df[df["category"] == selected_category]
+
+    # --------------------------
+    # Data Cleaning
+    # --------------------------
     st.subheader("🧹 Data Cleaning")
 
-    remove_dup = st.checkbox("Remove Duplicate Rows")
+    col1, col2 = st.columns(2)
 
-    remove_missing = st.checkbox(
-        "Remove Rows with Missing Values"
-    )
+    with col1:
+        remove_dup = st.checkbox("Remove Duplicate Rows")
+
+    with col2:
+        remove_missing = st.checkbox(
+            "Remove Rows with Missing Values"
+        )
+
+    duplicates = 0
+    missing = 0
 
     if remove_dup:
         df, duplicates = remove_duplicates(df)
+
         st.success(
-            f"Removed {duplicates} duplicate rows."
+            f"✅ Removed {duplicates} duplicate rows."
         )
 
     if remove_missing:
         df, missing = remove_missing_values(df)
-        st.success(
-            f"Removed {missing} rows with missing values."
-        )
 
+        st.success(
+            f"✅ Removed {missing} rows with missing values."
+        )
     # --------------------------
     # KPI Dashboard
+    # --------------------------
+
+        # --------------------------
+    # Executive Dashboard
     # --------------------------
 
     kpi = calculate_kpis(df)
@@ -142,14 +202,25 @@ if uploaded_file is not None:
 
     s1, s2, s3, s4, s5 = st.columns(5)
 
-    s1.metric("Rows", summary["rows"])
-    s2.metric("Columns", summary["columns"])
-    s3.metric("Numeric", summary["numeric"])
-    s4.metric("Text", summary["text"])
-    s5.metric("Date", summary["date"])
+    with s1:
+        st.metric("Rows", summary["rows"])
+
+    with s2:
+        st.metric("Columns", summary["columns"])
+
+    with s3:
+        st.metric("Numeric", summary["numeric"])
+
+    with s4:
+        st.metric("Text", summary["text"])
+
+    with s5:
+        st.metric("Date", summary["date"])
+
+    st.divider()
 
     # --------------------------
-    # Chart
+    # Sales by Category
     # --------------------------
 
     st.subheader("📊 Sales by Category")
@@ -159,7 +230,13 @@ if uploaded_file is not None:
     if fig is not None:
         st.plotly_chart(
             fig,
-            use_container_width=True)
+            use_container_width=True
+        )
+
+    # --------------------------
+    # Sales by Region
+    # --------------------------
+
     st.subheader("🌍 Sales by Region")
 
     fig = sales_by_region(df)
@@ -169,32 +246,66 @@ if uploaded_file is not None:
             fig,
             use_container_width=True
         )
+
+    # --------------------------
+    # Top 10 Products
+    # --------------------------
+
     st.subheader("🏆 Top 10 Products")
 
     fig = top_products(df)
 
     if fig is not None:
-        fig,
-        use_container_width=True
-
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
     # --------------------------
-    # Preview
+    # Monthly Sales Trend
+    # --------------------------
+
+    st.subheader("📈 Monthly Sales Trend")
+
+    fig = monthly_sales_trend(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+    # --------------------------
+    # Profit by Category
+    # --------------------------
+
+    st.subheader("💰 Profit by Category")
+
+    fig = profit_by_category(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+    st.divider()
+
+    # --------------------------
+    # Dataset Preview
     # --------------------------
 
     with st.expander(
-        "📄 Datase    st.plotly_chart(t Preview",
+        "📄 Dataset Preview",
         expanded=True
     ):
         st.dataframe(df.head())
 
     # --------------------------
-    # Information
+    # Dataset Information
     # --------------------------
 
-    with st.expander(
-        "ℹ Dataset Information"
-    ):
+    with st.expander("ℹ️ Dataset Information"):
 
         info = pd.DataFrame({
             "Column": df.columns,
@@ -202,18 +313,25 @@ if uploaded_file is not None:
         })
 
         st.dataframe(info)
-
     # --------------------------
     # Missing Values
     # --------------------------
 
-    with st.expander(
-        "❗ Missing Values"
-    ):
+        # --------------------------
+    # Missing Values
+    # --------------------------
 
-        missing = pd.DataFrame({
+    with st.expander("❗ Missing Values"):
+
+        missing_df = pd.DataFrame({
             "Column": df.columns,
-            "Missing": df.isnull().sum().values
+            "Missing Values": df.isnull().sum().values,
+            "Missing (%)": (
+                df.isnull().sum() / len(df) * 100
+            ).round(2).values
         })
 
-        st.dataframe(missing)
+        st.dataframe(
+            missing_df,
+            use_container_width=True
+        )
