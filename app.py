@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+from backend.charts import sales_by_category, sales_by_region
+from backend.products import top_products
 
 from backend.loader import load_dataset
 from backend.cleaning import (
@@ -27,6 +29,13 @@ st.set_page_config(
 st.sidebar.title("📊 InsightAI")
 st.sidebar.success("Navigation")
 
+page = st.sidebar.radio(
+    "Go To",
+    [
+        "Dashboard",
+        "Dataset"
+    ]
+)
 # ---------------------------------------------------
 # TITLE
 # ---------------------------------------------------
@@ -150,15 +159,31 @@ if uploaded_file is not None:
     if fig is not None:
         st.plotly_chart(
             fig,
+            use_container_width=True)
+    st.subheader("🌍 Sales by Region")
+
+    fig = sales_by_region(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
             use_container_width=True
         )
+    st.subheader("🏆 Top 10 Products")
+
+    fig = top_products(df)
+
+    if fig is not None:
+        fig,
+        use_container_width=True
+
 
     # --------------------------
     # Preview
     # --------------------------
 
     with st.expander(
-        "📄 Dataset Preview",
+        "📄 Datase    st.plotly_chart(t Preview",
         expanded=True
     ):
         st.dataframe(df.head())
