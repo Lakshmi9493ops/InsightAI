@@ -8,6 +8,10 @@ from backend.cleaning import (
     remove_missing_values,
     fill_missing_values
 )
+from backend.eda import (
+    numerical_summary,
+    correlation_heatmap
+)
 from backend.converter import convert_numeric
 from backend.exporter import convert_to_csv
 from backend.summary import dataset_summary
@@ -66,10 +70,6 @@ Upload a business dataset and analyze it instantly.
 - 📋 Dataset Summary
 - 👀 Dataset Preview
 """)
-
-# ---------------------------------------------------
-# FILE UPLOAD
-# ---------------------------------------------------
 
 # ---------------------------------------------------
 # FILE UPLOAD
@@ -393,4 +393,37 @@ if uploaded_file is not None:
         data=csv,
         file_name="cleaned_dataset.csv",
         mime="text/csv"
-    )   
+    ) 
+    st.subheader("📊 Numerical Summary")
+
+    summary_df = numerical_summary(df)
+
+    st.dataframe(summary_df) 
+    st.subheader("🔥 Correlation Heatmap")
+
+    fig = correlation_heatmap(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        ) 
+    st.subheader("📈 Distribution Analysis")
+
+    numeric_columns = df.select_dtypes(include="number").columns.tolist()
+
+    if numeric_columns:
+
+        selected_column = st.selectbox(
+            "Select Numeric Column",
+            numeric_columns
+        )
+
+    from backend.eda import histogram
+
+    fig = histogram(df, selected_column)
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
