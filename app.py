@@ -12,7 +12,11 @@ from backend.eda import (
     numerical_summary,
     correlation_heatmap
 )
-from backend.converter import convert_numeric
+from backend.score import dashboard_score
+from backend.insights import business_insights
+from backend.forecasting import sales_forecast
+from backend.anomaly import detect_sales_outliers
+from backend.customers import top_customers
 from backend.exporter import convert_to_csv
 from backend.summary import dataset_summary
 from backend.kpi import calculate_kpis
@@ -20,7 +24,10 @@ from backend.charts import (
     sales_by_category,
     sales_by_region,
     monthly_sales_trend,
-    profit_by_category
+    profit_by_category,
+    sales_by_segment,
+    sales_by_market,
+    sales_by_year
 )
 from backend.products import top_products
 
@@ -90,6 +97,29 @@ if uploaded_file is not None:
     # Load Dataset
     # --------------------------
     df = load_dataset(uploaded_file)
+    st.subheader("🔍 Debug: Data Types")
+    st.write(df.dtypes)
+
+    st.subheader("🔍 Debug: First 5 Rows")
+    st.dataframe(df.head())
+    # Convert business numeric columns
+    numeric_columns = [
+        "sales",
+        "profit",
+        "quantity",
+        "discount",
+        "shipping_cost"
+    ]
+
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = (
+                df[col]
+                .astype(str)
+                .str.replace(",", "", regex=False)
+                .str.strip()
+            )
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     # --------------------------
     # Sidebar Filters
@@ -184,28 +214,6 @@ if uploaded_file is not None:
 # --------------------------
 # Data Type Conversion
 # --------------------------
-
-    st.subheader("🔄 Data Type Conversion")
-
-    column = st.selectbox(
-        "Select Column",
-        df.columns
-    )
-
-    if st.button("Convert Selected Column to Numeric"):
-
-        df = convert_numeric(
-            df,
-            column
-        )
-
-        st.success(
-            f"✅ '{column}' converted to numeric."
-        )
-    # --------------------------
-    # KPI Dashboard
-    # --------------------------
-
         # --------------------------
     # Executive Dashboard
     # --------------------------
@@ -294,6 +302,29 @@ if uploaded_file is not None:
             fig,
             use_container_width=True
         )
+    st.subheader("Debug - Segment Data")
+    st.write(df[["segment", "sales"]].head(10))
+    st.subheader("👥 Sales by Segment")
+
+    fig = sales_by_segment(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+    st.write(df["segment"].value_counts())
+    st.subheader("Debug - Market Data")
+    st.write(df[["market", "sales"]].head(10))
+    st.subheader("🌎 Sales by Market")
+
+    fig = sales_by_market(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
     # --------------------------
     # Top 10 Products
@@ -302,6 +333,15 @@ if uploaded_file is not None:
     st.subheader("🏆 Top 10 Products")
 
     fig = top_products(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+    st.subheader("👑 Top Customers")
+
+    fig = top_customers(df)
 
     if fig is not None:
         st.plotly_chart(
@@ -322,7 +362,52 @@ if uploaded_file is not None:
             fig,
             use_container_width=True
         )
+    st.subheader("📅 Yearly Sales")
 
+    fig = sales_by_year(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+    st.subheader("📈 Sales Forecast")
+
+    fig = sales_forecast(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+    )
+    st.subheader("🚨 Sales Outliers")
+
+    outliers = detect_sales_outliers(df)
+
+    st.write(f"Outliers Found: {len(outliers)}")
+
+    if not outliers.empty:
+        st.dataframe(outliers.head(20))
+        st.subheader("🚨 Sales Outliers")
+
+    outliers = detect_sales_outliers(df)
+
+    st.write(f"Outliers Found: {len(outliers)}")
+
+    if not outliers.empty:
+        st.dataframe(outliers.head(20))
+    st.subheader("🤖 AI Business Insights")
+
+    for item in business_insights(df):
+        st.success(item)
+    st.subheader("🏆 Dataset Quality Score")
+
+    score = dashboard_score(df)
+
+    st.metric(
+        "Quality Score",
+        f"{score}/100"
+    )
     # --------------------------
     # Profit by Category
     # --------------------------

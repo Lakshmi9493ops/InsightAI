@@ -191,3 +191,95 @@ def profit_by_category(df):
     fig.update_traces(textposition="outside")
 
     return fig
+def sales_by_segment(df):
+
+    if "segment" not in df.columns or "sales" not in df.columns:
+        return None
+
+    summary = (
+        df.groupby("segment", as_index=False)["sales"]
+        .sum()
+        .sort_values("sales", ascending=False)
+    )
+
+    fig = px.pie(
+        summary,
+        names="segment",
+        values="sales",
+        title="Sales by Segment"
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        height=500
+    )
+
+    return fig
+def sales_by_market(df):
+
+    import plotly.express as px
+
+    if "market" not in df.columns or "sales" not in df.columns:
+        return None
+
+    summary = (
+        df.groupby("market", as_index=False)["sales"]
+        .sum()
+        .sort_values("sales", ascending=False)
+    )
+
+    fig = px.bar(
+        summary,
+        x="market",
+        y="sales",
+        color="market",
+        text="sales",
+        title="Sales by Market"
+    )
+
+    fig.update_traces(
+        texttemplate="%{text:.2s}",
+        textposition="outside"
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        showlegend=False,
+        xaxis_title="Market",
+        yaxis_title="Total Sales"
+    )
+
+    return fig
+def sales_by_year(df):
+
+    import plotly.express as px
+
+    if "year" not in df.columns or "sales" not in df.columns:
+        return None
+
+    temp = df.copy()
+
+    temp["year"] = temp["year"].astype(str)
+
+    summary = (
+        temp.groupby("year", as_index=False)
+        .agg({"sales": "sum"})
+        .sort_values("year")
+    )
+
+    fig = px.line(
+        summary,
+        x="year",
+        y="sales",
+        markers=True,
+        title="Yearly Sales"
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        xaxis_title="Year",
+        yaxis_title="Sales",
+        height=500
+    )
+
+    return fig
