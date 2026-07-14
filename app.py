@@ -12,6 +12,8 @@ from backend.eda import (
     numerical_summary,
     correlation_heatmap
 )
+from backend.countries import top_countries
+from backend.states import top_states
 from backend.score import dashboard_score
 from backend.insights import business_insights
 from backend.forecasting import sales_forecast
@@ -27,7 +29,8 @@ from backend.charts import (
     profit_by_category,
     sales_by_segment,
     sales_by_market,
-    sales_by_year
+    sales_by_year,
+    sales_by_ship_mode
 )
 from backend.products import top_products
 
@@ -325,6 +328,15 @@ if uploaded_file is not None:
             fig,
             use_container_width=True
         )
+    st.subheader("🚚 Sales by Ship Mode")
+
+    fig = sales_by_ship_mode(df)
+
+    if fig is not None:
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
     # --------------------------
     # Top 10 Products
@@ -423,6 +435,29 @@ if uploaded_file is not None:
         )
 
     st.divider()
+    # --------------------------
+# Top States
+# --------------------------
+
+st.subheader("🏆 Top States")
+
+fig = top_states(df)
+
+if fig is not None:
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+st.subheader("🌍 Top Countries")
+
+fig = top_countries(df)
+
+if fig is not None:
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
 
     # --------------------------
     # Dataset Preview
@@ -482,7 +517,6 @@ if uploaded_file is not None:
     st.subheader("📊 Numerical Summary")
 
     summary_df = numerical_summary(df)
-
     st.dataframe(summary_df) 
     st.subheader("🔥 Correlation Heatmap")
 

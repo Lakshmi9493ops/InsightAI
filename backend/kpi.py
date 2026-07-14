@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 def calculate_kpis(df):
     """
     Calculate executive KPI values.
@@ -39,3 +38,20 @@ def calculate_kpis(df):
         "orders": total_orders,
         "countries": total_countries
     }
+def profit_margin(df):
+
+    if "sales" not in df.columns:
+        return 0
+
+    if "profit" not in df.columns:
+        return 0
+
+    total_sales = df["sales"].sum()
+
+    if total_sales == 0:
+        return 0
+
+    return round(
+        (df["profit"].sum() / total_sales) * 100,
+        2
+    )
