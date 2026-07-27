@@ -1,27 +1,33 @@
 import streamlit as st
 import pandas as pd
 
-# Backend Modules
+# ==============================
+# Backend Imports
+# ==============================
+
 from backend.loader import load_dataset
+from backend.customer_segmentation import customer_segmentation
+
 from backend.cleaning import (
     remove_duplicates,
     remove_missing_values,
     fill_missing_values
 )
+from backend.correlation_insights import strongest_correlations
+from backend.converter import convert_numeric
+from backend.report import dataset_report
+from backend.summary import dataset_summary
+
+from backend.kpi import calculate_kpis
+
+from backend.exporter import convert_to_csv
+
 from backend.eda import (
     numerical_summary,
-    correlation_heatmap
+    correlation_heatmap,
+    histogram
 )
-from backend.countries import top_countries
-from backend.states import top_states
-from backend.score import dashboard_score
-from backend.insights import business_insights
-from backend.forecasting import sales_forecast
-from backend.anomaly import detect_sales_outliers
-from backend.customers import top_customers
-from backend.exporter import convert_to_csv
-from backend.summary import dataset_summary
-from backend.kpi import calculate_kpis
+
 from backend.charts import (
     sales_by_category,
     sales_by_region,
@@ -30,13 +36,27 @@ from backend.charts import (
     sales_by_segment,
     sales_by_market,
     sales_by_year,
-    sales_by_ship_mode
+    sales_by_ship_mode,
+    sales_by_priority
 )
+from backend.product_segmentation import product_segmentation
 from backend.products import top_products
+from backend.customers import top_customers
+from backend.states import top_states
+from backend.countries import top_countries
+from backend.score import dashboard_score
+from backend.insights import business_insights
+from backend.forecasting import sales_forecast
+from backend.anomaly import detect_sales_outliers
 
-# ---------------------------------------------------
-# PAGE CONFIGURATION
-# ---------------------------------------------------
+from backend.ml_sales_prediction import (
+    train_sales_model,
+    predict_sales
+)
+
+# ==============================
+# Page Configuration
+# ==============================
 
 st.set_page_config(
     page_title="InsightAI",
@@ -44,505 +64,317 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------------------------------------------
-# SIDEBAR
-# ---------------------------------------------------
+# ==============================
+# Sidebar
+# ==============================
 
 st.sidebar.title("📊 InsightAI")
-st.sidebar.success("Navigation")
 
 page = st.sidebar.radio(
-    "Go To",
+    "Navigation",
     [
         "Dashboard",
+        "Analytics",
+        "Machine Learning",
         "Dataset"
     ]
 )
 
-# ---------------------------------------------------
-# MAIN TITLE
-# ---------------------------------------------------
+# ==============================
+# Title
+# ==============================
 
 st.title("📊 InsightAI")
 
-st.markdown("""
-## AI-Powered Business Data Analyst
+st.caption("AI-Powered Business Analytics Platform")
 
-Upload a business dataset and analyze it instantly.
+st.divider()
 
-### Current Features
-
-- 📂 Upload CSV & Excel
-- 📊 Executive KPI Dashboard
-- 🧹 Remove Duplicate Rows
-- ❗ Remove Missing Values
-- 📈 Interactive Business Charts
-- 📋 Dataset Summary
-- 👀 Dataset Preview
-""")
-
-# ---------------------------------------------------
-# FILE UPLOAD
-# ---------------------------------------------------
+# ==============================
+# Upload File
+# ==============================
 
 uploaded_file = st.file_uploader(
     "📂 Upload CSV or Excel",
     type=["csv", "xlsx"]
 )
 
-# ---------------------------------------------------
-# MAIN
-# ---------------------------------------------------
+# ==============================
+# Stop if no file uploaded
+# ==============================
 
-if uploaded_file is not None:
+if uploaded_file is None:
 
-    # --------------------------
-    # Load Dataset
-    # --------------------------
-    df = load_dataset(uploaded_file)
-    st.subheader("🔍 Debug: Data Types")
-    st.write(df.dtypes)
+    st.info("👆 Please upload a CSV or Excel file to continue.")
 
-    st.subheader("🔍 Debug: First 5 Rows")
-    st.dataframe(df.head())
-    # Convert business numeric columns
-    numeric_columns = [
-        "sales",
-        "profit",
-        "quantity",
-        "discount",
-        "shipping_cost"
-    ]
+    st.stop()
 
-    for col in numeric_columns:
-        if col in df.columns:
-            df[col] = (
-                df[col]
-                .astype(str)
-                .str.replace(",", "", regex=False)
-                .str.strip()
-            )
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+# ==============================
+# Load Dataset
+# ==============================
 
-    # --------------------------
-    # Sidebar Filters
-    # --------------------------
-    st.sidebar.header("📌 Dashboard Filters")
+df = load_dataset(uploaded_file)
 
-    # Region Filter
-    selected_region = "All"
+# ==============================
+# Sidebar Filters
+# ==============================
 
-    if "region" in df.columns:
+st.sidebar.header("Dashboard Filters")
 
-        regions = sorted(df["region"].dropna().unique())
+if "region" in df.columns:
 
-        selected_region = st.sidebar.selectbox(
-            "🌍 Select Region",
-            ["All"] + regions
-        )
+    regions = sorted(df["region"].dropna().unique())
 
-        if selected_region != "All":
-            df = df[df["region"] == selected_region]
-
-    # Category Filter
-    selected_category = "All"
-
-    if "category" in df.columns:
-
-        categories = sorted(df["category"].dropna().unique())
-
-        selected_category = st.sidebar.selectbox(
-            "📦 Select Category",
-            ["All"] + categories
-        )
-
-        if selected_category != "All":
-            df = df[df["category"] == selected_category]
-
-    
-    # --------------------------
-    # Data Cleaning
-    # --------------------------
-
-    st.subheader("🧹 Data Cleaning")
-
-    # Cleaning Options
-    remove_dup = st.checkbox("Remove Duplicate Rows")
-
-    remove_missing = st.checkbox(
-        "Remove Rows with Missing Values"
+    selected_region = st.sidebar.selectbox(
+        "Region",
+        ["All"] + regions
     )
 
+    if selected_region != "All":
+        df = df[df["region"] == selected_region]
+
+if "category" in df.columns:
+
+    categories = sorted(df["category"].dropna().unique())
+
+    selected_category = st.sidebar.selectbox(
+        "Category",
+        ["All"] + categories
+    )
+
+    if selected_category != "All":
+        df = df[df["category"] == selected_category]
+
+# ==============================
+# Data Cleaning
+# ==============================
+
+st.subheader("🧹 Data Cleaning")
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    remove_dup = st.checkbox("Remove Duplicates")
+
+with c2:
+    remove_null = st.checkbox("Remove Missing Values")
+
+with c3:
     fill_method = st.selectbox(
         "Fill Missing Values",
-        [
-            "None",
-            "Mean",
-            "Median",
-            "Mode"
-        ]
+        ["None", "Mean", "Median", "Mode"]
     )
 
-    # --------------------------
-    # Apply Cleaning
-    # --------------------------
+if remove_dup:
+    df, _ = remove_duplicates(df)
 
-    if remove_dup:
+if remove_null:
+    df, _ = remove_missing_values(df)
 
-        df, duplicates = remove_duplicates(df)
+if fill_method != "None":
+    df = fill_missing_values(df, fill_method)
 
-        st.success(
-            f"✅ Removed {duplicates} duplicate rows."
-        )
+# ==============================
+# Convert Column
+# ==============================
 
-    if remove_missing:
+st.subheader("🔄 Convert Column to Numeric")
 
-        df, missing = remove_missing_values(df)
+selected_column = st.selectbox(
+    "Select Column",
+    df.columns
+)
 
-        st.success(
-            f"✅ Removed {missing} rows with missing values."
-        )
+if st.button("Convert"):
 
-    if fill_method != "None":
-
-        df = fill_missing_values(
-            df,
-            fill_method
-        )
-
-        st.success(
-            f"✅ Missing values filled using {fill_method}."
-        )
-
-# --------------------------
-# Data Type Conversion
-# --------------------------
-        # --------------------------
-    # Executive Dashboard
-    # --------------------------
-
-    kpi = calculate_kpis(df)
-
-    st.subheader("📊 Executive Dashboard")
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        st.metric(
-            "💰 Total Sales",
-            f"${kpi['sales']:,.2f}"
-        )
-
-    with c2:
-        st.metric(
-            "📈 Total Profit",
-            f"${kpi['profit']:,.2f}"
-        )
-
-    with c3:
-        st.metric(
-            "📦 Orders",
-            kpi["orders"]
-        )
-
-    with c4:
-        st.metric(
-            "🌍 Countries",
-            kpi["countries"]
-        )
-
-    # --------------------------
-    # Dataset Summary
-    # --------------------------
-
-    summary = dataset_summary(df)
-
-    st.subheader("📑 Dataset Summary")
-
-    s1, s2, s3, s4, s5 = st.columns(5)
-
-    with s1:
-        st.metric("Rows", summary["rows"])
-
-    with s2:
-        st.metric("Columns", summary["columns"])
-
-    with s3:
-        st.metric("Numeric", summary["numeric"])
-
-    with s4:
-        st.metric("Text", summary["text"])
-
-    with s5:
-        st.metric("Date", summary["date"])
-
-    st.divider()
-
-    # --------------------------
-    # Sales by Category
-    # --------------------------
-
-    st.subheader("📊 Sales by Category")
-
-    fig = sales_by_category(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-    # --------------------------
-    # Sales by Region
-    # --------------------------
-
-    st.subheader("🌍 Sales by Region")
-
-    fig = sales_by_region(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-    st.subheader("Debug - Segment Data")
-    st.write(df[["segment", "sales"]].head(10))
-    st.subheader("👥 Sales by Segment")
-
-    fig = sales_by_segment(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-    st.write(df["segment"].value_counts())
-    st.subheader("Debug - Market Data")
-    st.write(df[["market", "sales"]].head(10))
-    st.subheader("🌎 Sales by Market")
-
-    fig = sales_by_market(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-    st.subheader("🚚 Sales by Ship Mode")
-
-    fig = sales_by_ship_mode(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-    # --------------------------
-    # Top 10 Products
-    # --------------------------
-
-    st.subheader("🏆 Top 10 Products")
-
-    fig = top_products(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-    st.subheader("👑 Top Customers")
-
-    fig = top_customers(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-    # --------------------------
-    # Monthly Sales Trend
-    # --------------------------
-
-    st.subheader("📈 Monthly Sales Trend")
-
-    fig = monthly_sales_trend(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-    st.subheader("📅 Yearly Sales")
-
-    fig = sales_by_year(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-    st.subheader("📈 Sales Forecast")
-
-    fig = sales_forecast(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
+    df = convert_numeric(
+        df,
+        selected_column
     )
-    st.subheader("🚨 Sales Outliers")
 
-    outliers = detect_sales_outliers(df)
+    st.success(f"{selected_column} converted successfully.")
+# =====================================================
+# Executive Dashboard
+# =====================================================
 
-    st.write(f"Outliers Found: {len(outliers)}")
+st.divider()
 
-    if not outliers.empty:
-        st.dataframe(outliers.head(20))
-        st.subheader("🚨 Sales Outliers")
+st.header("📊 Executive Dashboard")
 
-    outliers = detect_sales_outliers(df)
+kpi = calculate_kpis(df)
 
-    st.write(f"Outliers Found: {len(outliers)}")
+c1, c2, c3, c4 = st.columns(4)
 
-    if not outliers.empty:
-        st.dataframe(outliers.head(20))
-    st.subheader("🤖 AI Business Insights")
-
-    for item in business_insights(df):
-        st.success(item)
-    st.subheader("🏆 Dataset Quality Score")
-
-    score = dashboard_score(df)
-
+with c1:
     st.metric(
-        "Quality Score",
-        f"{score}/100"
+        "💰 Total Sales",
+        f"${kpi['sales']:,.2f}"
     )
-    # --------------------------
-    # Profit by Category
-    # --------------------------
 
-    st.subheader("💰 Profit by Category")
+with c2:
+    st.metric(
+        "📈 Total Profit",
+        f"${kpi['profit']:,.2f}"
+    )
 
-    fig = profit_by_category(df)
+with c3:
+    st.metric(
+        "📦 Total Orders",
+        kpi["orders"]
+    )
+
+with c4:
+    st.metric(
+        "🌍 Countries",
+        kpi["countries"]
+    )
+
+# =====================================================
+# Business Health Score
+# =====================================================
+
+st.divider()
+
+score = dashboard_score(df)
+
+st.subheader("⭐ Business Health Score")
+
+st.metric(
+    "Overall Dashboard Score",
+    f"{score}/100"
+)
+
+# =====================================================
+# Dataset Summary
+# =====================================================
+
+summary = dataset_summary(df)
+
+st.divider()
+
+st.subheader("📑 Dataset Summary")
+
+s1, s2, s3, s4, s5 = st.columns(5)
+
+with s1:
+    st.metric("Rows", summary["rows"])
+
+with s2:
+    st.metric("Columns", summary["columns"])
+
+with s3:
+    st.metric("Numeric", summary["numeric"])
+
+with s4:
+    st.metric("Text", summary["text"])
+
+with s5:
+    st.metric("Date", summary["date"])
+
+# =====================================================
+# Business Charts
+# =====================================================
+
+st.divider()
+
+st.header("📈 Business Analytics Dashboard")
+
+charts = [
+
+    ("📦 Sales by Category", sales_by_category),
+
+    ("🌍 Sales by Region", sales_by_region),
+
+    ("📈 Monthly Sales Trend", monthly_sales_trend),
+
+    ("💰 Profit by Category", profit_by_category),
+
+    ("🏆 Top Products", top_products),
+
+    ("👥 Top Customers", top_customers),
+
+    ("🥧 Sales by Segment", sales_by_segment),
+
+    ("🌎 Sales by Market", sales_by_market),
+
+    ("📅 Sales by Year", sales_by_year),
+
+    ("🚚 Sales by Ship Mode", sales_by_ship_mode),
+
+    ("⭐ Sales by Order Priority", sales_by_priority),
+
+    ("🏆 Top States", top_states),
+
+    ("🌍 Top Countries", top_countries)
+
+]
+
+for title, chart_function in charts:
+
+    st.subheader(title)
+
+    fig = chart_function(df)
 
     if fig is not None:
+
         st.plotly_chart(
             fig,
             use_container_width=True
         )
 
-    st.divider()
-    # --------------------------
-# Top States
-# --------------------------
+    else:
 
-st.subheader("🏆 Top States")
+        st.info(
+            f"{title} cannot be displayed for this dataset."
+        )
 
-fig = top_states(df)
+# =====================================================
+# AI Business Insights
+# =====================================================
+
+st.divider()
+
+st.header("🤖 AI Business Insights")
+
+insights = business_insights(df)
+
+if insights:
+
+    for item in insights:
+
+        st.success(item)
+
+else:
+
+    st.info("No insights available.")
+st.subheader("👥 Customer Segmentation")
+
+fig = customer_segmentation(df)
 
 if fig is not None:
     st.plotly_chart(
         fig,
         use_container_width=True
     )
-st.subheader("🌍 Top Countries")
+st.subheader("📦 Product Segmentation")
 
-fig = top_countries(df)
+fig = product_segmentation(df)
 
 if fig is not None:
     st.plotly_chart(
         fig,
         use_container_width=True
     )
+st.subheader("🔗 Strongest Correlations")
 
+corr_df = strongest_correlations(df)
 
-    # --------------------------
-    # Dataset Preview
-    # --------------------------
+st.dataframe(
+    corr_df,
+    use_container_width=True
+)
+st.subheader("📄 Dataset Report")
 
-    with st.expander(
-        "📄 Dataset Preview",
-        expanded=True
-    ):
-        st.dataframe(df.head())
+report = dataset_report(df)
 
-    # --------------------------
-    # Dataset Information
-    # --------------------------
-
-    with st.expander("ℹ️ Dataset Information"):
-
-        info = pd.DataFrame({
-            "Column": df.columns,
-            "Datatype": df.dtypes.astype(str)
-        })
-
-        st.dataframe(info)
-    
-    # --------------------------
-    # Missing Values
-    # --------------------------
-
-    with st.expander("❗ Missing Values"):
-
-        missing_df = pd.DataFrame({
-            "Column": df.columns,
-            "Missing Values": df.isnull().sum().values,
-            "Missing (%)": (
-                df.isnull().sum() / len(df) * 100
-            ).round(2).values
-        })
-
-        st.dataframe(
-            missing_df,
-            use_container_width=True
-        )
-    # --------------------------
-    # Download Cleaned Dataset
-    # --------------------------
-
-    st.subheader("📥 Download Cleaned Dataset")
-
-    csv = convert_to_csv(df)
-
-    st.download_button(
-        label="⬇ Download Cleaned CSV",
-        data=csv,
-        file_name="cleaned_dataset.csv",
-        mime="text/csv"
-    ) 
-    st.subheader("📊 Numerical Summary")
-
-    summary_df = numerical_summary(df)
-    st.dataframe(summary_df) 
-    st.subheader("🔥 Correlation Heatmap")
-
-    fig = correlation_heatmap(df)
-
-    if fig is not None:
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        ) 
-    st.subheader("📈 Distribution Analysis")
-
-    numeric_columns = df.select_dtypes(include="number").columns.tolist()
-
-    if numeric_columns:
-
-        selected_column = st.selectbox(
-            "Select Numeric Column",
-            numeric_columns
-        )
-
-    from backend.eda import histogram
-
-    fig = histogram(df, selected_column)
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
+st.json(report)

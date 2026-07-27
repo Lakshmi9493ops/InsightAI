@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.express as px
 
 
@@ -9,8 +10,17 @@ def top_states(df):
     if "sales" not in df.columns:
         return None
 
+    temp = df.copy()
+
+    temp["sales"] = pd.to_numeric(
+        temp["sales"],
+        errors="coerce"
+    )
+
+    temp = temp.dropna(subset=["sales"])
+
     summary = (
-        df.groupby("state", as_index=False)["sales"]
+        temp.groupby("state", as_index=False)["sales"]
         .sum()
         .sort_values("sales", ascending=False)
         .head(10)
@@ -25,7 +35,9 @@ def top_states(df):
     )
 
     fig.update_layout(
-        template="plotly_white"
+        template="plotly_white",
+        showlegend=False,
+        height=500
     )
 
     return fig

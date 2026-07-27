@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.express as px
 
 
@@ -9,28 +10,33 @@ def top_customers(df):
     if "sales" not in df.columns:
         return None
 
+    temp = df.copy()
+
+    temp["sales"] = pd.to_numeric(
+        temp["sales"],
+        errors="coerce"
+    )
+
+    temp = temp.dropna(subset=["sales"])
+
     summary = (
-        df.groupby("customer_name", as_index=False)
-        .agg({"sales": "sum"})
+        temp.groupby("customer_name", as_index=False)["sales"]
+        .sum()
         .sort_values("sales", ascending=False)
         .head(10)
     )
 
     fig = px.bar(
         summary,
-        x="customer_name",
-        y="sales",
-        color="sales",
-        text_auto=".2s",
-        title="Top 10 Customers"
+        x="sales",
+        y="customer_name",
+        orientation="h",
+        color="sales"
     )
 
     fig.update_layout(
         template="plotly_white",
-        xaxis_title="Customer",
-        yaxis_title="Sales",
-        xaxis_tickangle=-45,
-        height=600
+        height=550
     )
 
     return fig
